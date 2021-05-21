@@ -1,4 +1,4 @@
-#include "scroller.h"
+#include "tile.h"
 
 #ifndef Included_Screen
 
@@ -6,46 +6,59 @@
 #define MAX_ELEMENTS 10
 
 class Screen {
-  private:
-    Element *_elements[MAX_ELEMENTS];
-    int findByName(char*);
-
-  public:
-    void next();
-    void add(Element*, int);
-    void process(char*);
+    private:
+        Tile* _tiles[MAX_ELEMENTS];
+        uint8_t _tileCounter = 0;
+        Timezone _tz;
+        int8_t findByName(char*);
+  
+    public:
+        Screen();
+        void tick();
+        void add(Tile*);
+        void process(char*);
+        void update(char*, const JsonDocument&);
 };
 
-void Screen::next() {
-//  Serial.println("Screen");
-  u8g2.clearBuffer();
+Screen::Screen() {
+    Serial.println("Setting timezone");
+    _tz.setCache(0);
+    _tz.setLocation("Europe/London");
+}
 
-  for (uint8_t i = 0; i < MAX_ELEMENTS; i++) {
-    if (_elements[i]) {
-      _elements[i]->next();
+void Screen::tick() {
+    u8g2.clearBuffer();
+  
+    for (uint8_t i = 0; i < _tileCounter; i++) {
+        _tiles[i]->tick();
     }
-  }
-
-  u8g2.sendBuffer();
+  
+    u8g2.sendBuffer();
 }
 
-void Screen::add(Element *element, int i) {
-  _elements[i] = element;
+void Screen::add(Tile *tile) {
+    tile->init();
+    tile->setTimezone(_tz);
+    _tiles[_tileCounter++] = tile;
 }
 
-void Screen::process(char* data) {  
-  Serial.println(data[0]);
-  findByName(data);
-}
-
-int Screen::findByName(char* name) {
-  for (uint8_t i = 0; i < MAX_ELEMENTS; i++) {
-    if (_elements[i] && _elements[i]->getName() == name) {
-      return i;
+void Screen::update(char* tileName, const JsonDocument& data) {
+    int8_t i = findByName(tileName);
+    if (i > -1) {
+  //    Serial.print("[Screen] Data: ");
+  //    Serial.println(data); 
+        _tiles[i]->update(data);
     }
-  }
-
-  return NULL;
 }
 
+
+int8_t Screen::findByName(char* name) {
+    for (int8_t i = 0; i < _tileCounter; i++) {
+        if (String(name).equals(_tiles[i]->getName())) {
+            return i;
+        }
+    }
+  
+    return -1;
+}
 #endif
